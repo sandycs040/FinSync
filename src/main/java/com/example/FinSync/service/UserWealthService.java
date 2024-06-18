@@ -99,8 +99,7 @@ public class UserWealthService {
 
     private Map<String, Double> getTotalMfInvestments(List<MutualFunds> mutualFundList) {
         Map<String,Double> mfAmounts = new HashMap<>();
-        Double currentMFAmount = 0.0;
-        Double investedMFAmount = 0.0;
+        Double currentMFAmount = 0.0, investedMFAmount = 0.0;
         for(MutualFunds mf: mutualFundList){
             Double units = mf.getNav() * mf.getUnits();
             currentMFAmount = currentMFAmount + units;
