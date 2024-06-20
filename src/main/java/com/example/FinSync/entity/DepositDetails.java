@@ -17,16 +17,18 @@ import java.util.UUID;
 @Data
 public class DepositDetails {
 
-    @NotNull(message = "Account number cannot be empty")
+    @NotNull(message = "Account number cannot be null")
+    @NotEmpty(message = "Account number cannot be empty")
     @Pattern(regexp = "^[0-9]+$", message = "Account number must contain only numbers")
     private String depositAccountNumber;
 
-    @NotNull(message = "Deposit type(FD/RD) cannot be empty")
     @Size(min = 2,max = 2, message = "Deposit Type must be FD/RD")
     @Pattern(regexp = "^(FD|RD)$", message = "Deposit type must be either FD or RD")
+    @NotNull(message = "Deposit type(FD/RD) cannot be Null")
+    @NotEmpty(message = "Deposit type(FD/RD) cannot be empty")
     private String depositType;
 
-    @NotNull(message = "Balance cannot be empty")
+    @NotNull(message = "Amount cannot be null")
     @Positive(message = "Deposit amount should be positive number")
     private Double amount;
 

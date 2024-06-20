@@ -28,9 +28,6 @@ public class Loan {
     @Column(name = "loan_account_number" ,nullable = false,unique = true)
     private String loanAccountNumber;
 
-    @Column(name = "decription")
-    private String description;
-
     @Column(name = "loan_type")
     private String loanType;
 
@@ -49,5 +46,5 @@ public class Loan {
     private LocalDateTime updatedAt;
 
     @Column(name = "deleted_at")
-    private boolean deletedFlag;
+    private boolean deletedFlag = false;
 }

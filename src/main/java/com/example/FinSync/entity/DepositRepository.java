@@ -7,4 +7,8 @@ import java.util.UUID;
 
 public interface DepositRepository extends JpaRepository<Deposit, UUID> {
     List<Deposit> findByUserId(Long userId);
+
+    Deposit findByDepositAccountNumber(String depositAccountNumber);
+
+    Boolean existsByDepositAccountNumber(String depositAccountNumber);
 }

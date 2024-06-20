@@ -3,6 +3,7 @@ package com.example.FinSync.utils;
 
 import com.example.FinSync.entity.FinSyncResponseDetails;
 import lombok.NoArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.Map;
@@ -29,9 +30,9 @@ public class FinSyncResponseUtils {
         return ResponseEntity.ok().body(getSucessResponse(response, message));
         }
 
-    public static ResponseEntity<?> generateErrorResponse(Map<String,String> response) {
+    public static ResponseEntity<?> generateErrorResponse(Map<String,String> response,String message) {
         System.out.println(" | 1 | " +response);
-        return ResponseEntity.ok().body(getErrorResponse(response));
+        return ResponseEntity.badRequest().body(getErrorResponse(response, message));
     }
 
     public static FinSyncResponseDetails getSucessResponse(Object response){
@@ -41,9 +42,9 @@ public class FinSyncResponseUtils {
         return dto;
     }
 
-    public static FinSyncResponseDetails getErrorResponse(Map<String,String > response){
+    public static FinSyncResponseDetails getErrorResponse(Map<String,String > response, String message){
         System.out.println(" | 1.1 | " +response);
-        FinSyncResponseDetails dto = new FinSyncResponseDetails("400", "error",response);
+        FinSyncResponseDetails dto = new FinSyncResponseDetails("400", message,response);
         logger.info("FinSync - Wealth : Error Response : " + dto);
         return dto;
     }

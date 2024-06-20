@@ -33,13 +33,7 @@ public class MutualFunds {
     private double units;
 
     @Column(name = "nav")
-    private double nav;
-
-    @Column(name = "total_investments")
-    private double totalInvestments;
-
-    @Column(name = "description")
-    private String description;
+    private double avgNav;
 
     @CreationTimestamp
     @Column(name = "created_at")

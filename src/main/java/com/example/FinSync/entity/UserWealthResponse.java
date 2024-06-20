@@ -8,10 +8,12 @@ import lombok.Data;
 public class UserWealthResponse {
     private Double availableSavings;
     private double deposits;
-    private double LoanDebt;
-    private double InvestedStocksAmount;
-    private double CurrentStocksAmount;
-    private double InvestedMFAmount;
-    private double CurrentMFAmount;
+    private double loanDebt;
+    private double investedStocksAmount;
+    private double currentStocksAmount;
+    private double stockTotalGain;
+    private double investedMFAmount;
+    private double currentMFAmount;
+    private double totalGain;
 
 }

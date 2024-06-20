@@ -32,9 +32,6 @@ public class Deposit {
     @Column(name = "amount")
     private double amount;
 
-    @Column(name = "decription")
-    private String description;
-
     @CreationTimestamp
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -44,5 +41,5 @@ public class Deposit {
     private LocalDateTime updatedAt;
 
     @Column(name = "deleted_flag")
-    private boolean deletedFlag;
+    private boolean deletedFlag = false;
 }

@@ -29,12 +29,4 @@ public class StocksDetails {
     @NotNull(message = "Stock purchased price can not empty")
     @Positive(message = "Deposit amount should be positive number")
     private double stockPurchesdPrice;
-
-    @NotNull(message = "price of stock cannot be empty")
-    @Positive(message = "price of stock should be positive number")
-    private double stockPrice;
-
-    @NotNull(message = "price of stock cannot be empty")
-    @Positive(message = "price of stock should be positive number")
-    private double stockSellingPrice;
 }

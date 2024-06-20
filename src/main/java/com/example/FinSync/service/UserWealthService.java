@@ -1,16 +1,25 @@
 package com.example.FinSync.service;
 
 import com.example.FinSync.entity.*;
+import com.example.FinSync.entity.mongoWealth.BankDetails;
+import com.example.FinSync.exception.ResourceNotFoundException;
+import com.example.FinSync.exception.ValidationErrorException;
+import com.example.FinSync.utils.FinSyncResponseUtils;
+import jakarta.validation.ValidationException;
+import org.apache.coyote.BadRequestException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+
+import java.util.*;
 import java.util.logging.Logger;
 
 @Service
 public class UserWealthService {
+
+    @Autowired
+    WealthService wealthService;
 
     @Autowired
     AccountRepository accountRepo;
@@ -32,21 +41,31 @@ public class UserWealthService {
 
     private static final Logger logger = Logger.getLogger(UserWealthService.class.getName());
 
-    public UserWealthResponse saveWealthData(UserWealth userWealthRequest) {
+    Double nav = 63.0;
+    Double stockPrice = 200.0;
+    Long userId = 1L;
+    Boolean getWealthTriggerFlag = false;
+    String updateFlag = "";
+    public UserWealthResponse saveWealthData(UserWealth userWealthRequest) throws Exception {
         Double availableSavings = 0.0, availableDeposits = 0.0, loanDebt = 0.0, investedStocksAmount = 0.0, currentStocksAmount = 0.0, investedMFAmount = 0.0, currentMFAmount = 0.0;
         Map<String, Double> stockGain = new HashMap<>();
         Map<String, Double> mfGain = new HashMap<>();
+        Boolean saveFlag = true;
         try {
-           Boolean saveFlag = true;
-           availableSavings = saveUserAccounts(userWealthRequest, saveFlag);
-           availableDeposits = saveUserDeposits(userWealthRequest, saveFlag);
-           loanDebt = saveUserLoan(userWealthRequest, saveFlag);
-           mfGain = saveUserMfs(userWealthRequest, saveFlag);
-           stockGain = saveUserStocks(userWealthRequest, saveFlag);
-       }catch (Exception ex){
+            saveFlag = (getWealthTriggerFlag != true) ? true : false;
+            System.out.println(" SAVED DAta : save flag : " + saveFlag + " | wealth flag | " + getWealthTriggerFlag);
+            availableSavings = saveUserAccounts(userWealthRequest, saveFlag);
+            availableDeposits = saveUserDeposits(userWealthRequest, saveFlag);
+            loanDebt = saveUserLoan(userWealthRequest, saveFlag);
+            mfGain = saveUserMfs(userWealthRequest, saveFlag);
+            stockGain = saveUserStocks(userWealthRequest, saveFlag);
+        }catch (ResourceNotFoundException ex){ throw new ResourceNotFoundException(ex.getMessage());
+        }catch (ValidationErrorException ex){ throw new ValidationErrorException(ex.getMessage());
+        }catch (Exception ex){
            logger.info(" | Exception | Save wealth Service | " +ex.getMessage() + " | ");
+           throw new Exception(ex.getMessage());
        }
-        return new UserWealthResponse(availableSavings,availableDeposits,loanDebt,stockGain.get("investedStocksAmount") == null ? 0.0 :stockGain.get("investedStocksAmount"),stockGain.get("currentStocksAmount") == null ? 0.0 : stockGain.get("currentStocksAmount"),mfGain.get("investedMFAmount") == null ? 0.0 : mfGain.get("investedMFAmount"),mfGain.get("currentMFAmount") == null ? 0.0 : mfGain.get("currentMFAmount"));
+        return new UserWealthResponse(availableSavings,availableDeposits,loanDebt,stockGain.get("investedStocksAmount") == null ? 0.0 :stockGain.get("investedStocksAmount"),stockGain.get("currentStocksAmount") == null ? 0.0 : stockGain.get("currentStocksAmount"), stockGain.get("stockTotalGain") == null ? 0.0 :stockGain.get("stockTotalGain"),mfGain.get("investedMFAmount") == null ? 0.0 : mfGain.get("investedMFAmount"),mfGain.get("currentMFAmount") == null ? 0.0 : mfGain.get("currentMFAmount"),mfGain.get("totalGain")== null ? 0.0 : mfGain.get("totalGain"));
     }
 
     private Map<String, Double> saveUserStocks(UserWealth userWealthRequest, Boolean saveFlag) {
@@ -54,41 +73,55 @@ public class UserWealthService {
         if(saveFlag && userWealthRequest.getStocks() != null) {
             for (StocksDetails stock : userWealthRequest.getStocks()) {
                 Stocks stockEntity = mappingStockEntity(stock, userWealthRequest);
+                if(updateFlag.equalsIgnoreCase("update")){
+                    stockEntity = stockRepo.findByDematAccountNumber(stock.getDematAccountNumber());
+                    if(stockEntity == null){
+                        throw new ResourceNotFoundException("stock demat account number id not found to update");
+                    }
+                }
                 stockRepo.save(stockEntity);
             }
         }
-        List<Stocks> stockList = stockRepo.findByUserId(userWealthRequest.getUserId());
+        List<Stocks> stockList = stockRepo.findByUserId(userId);
         if(stockList == null){
             stockInvestmentsAmount.put("currentStocksAmount",0.0);
             stockInvestmentsAmount.put("investedStocksAmount",0.0);
+            stockInvestmentsAmount.put("stockTotalGain",0.0);
         }else { stockInvestmentsAmount = getTotalInvestmentAmounts(stockList); }
         return stockInvestmentsAmount;
     }
 
     private Map<String, Double> getTotalInvestmentAmounts(List<Stocks> stockList) {
         Map<String,Double> stockInvestmentsAmount = new HashMap<>();
-        Double currentStocksAmount = 0.0;
-        Double investedStocksAmount = 0.0;
+        Double currentStocksAmount = 0.0, investedStocksAmount = 0.0, totalGain = 0.0;
         for(Stocks stock : stockList){
             double currentPrice = stock.getStockSellingPrice() == 0.0 ? stock.getStockPrice() : stock.getStockSellingPrice();
             double investedPrice = stock.getStockPurchesdPrice();
             currentStocksAmount = currentStocksAmount +
                     (stock.getQuantity() * currentPrice);
             investedStocksAmount = investedStocksAmount + (stock.getQuantity() * investedPrice);
+            totalGain = stock.getQuantity() * stockPrice;
         }
         stockInvestmentsAmount.put("currentStocksAmount",currentStocksAmount);
         stockInvestmentsAmount.put("investedStocksAmount",investedStocksAmount);
+        stockInvestmentsAmount.put("stockTotalGain",totalGain);
         return stockInvestmentsAmount;
     }
 
     private Map<String, Double> saveUserMfs(UserWealth userWealthRequest, Boolean saveFlag) {
         if(saveFlag && userWealthRequest.getMutualFunds() != null) {
-            for (MutualFundDeatils mf : userWealthRequest.getMutualFunds()) {
+            for (MutualFundDetails mf : userWealthRequest.getMutualFunds()) {
                 MutualFunds mfEntity = mappingMfEntity(mf, userWealthRequest);
+                if(updateFlag.equalsIgnoreCase("update")){
+                    mfEntity = mutualFundRepo.findByDematAccountNumber(mf.getDematAccountNumber());
+                    if(mfEntity == null){
+                        throw new ResourceNotFoundException("mf demat account number id not found to update");
+                    }
+                }
                 mutualFundRepo.save(mfEntity);
             }
         }
-        List<MutualFunds> mutualFundList = mutualFundRepo.findByUserId(userWealthRequest.getUserId());
+        List<MutualFunds> mutualFundList = mutualFundRepo.findByUserId(userId);
         Map<String,Double> mfAmounts = new HashMap<>();
         if(mutualFundList == null){
             mfAmounts.put("currentMFAmount",0.0);
@@ -101,29 +134,43 @@ public class UserWealthService {
         Map<String,Double> mfAmounts = new HashMap<>();
         Double currentMFAmount = 0.0, investedMFAmount = 0.0;
         for(MutualFunds mf: mutualFundList){
-            Double units = mf.getNav() * mf.getUnits();
-            currentMFAmount = currentMFAmount + units;
-            Double totalInvestment = mf.getTotalInvestments();
-            investedMFAmount = investedMFAmount + mf.getTotalInvestments();
+            Double totalInvested = mf.getAvgNav() * mf.getUnits();
+            investedMFAmount = investedMFAmount + totalInvested;
+            Double currentValue = nav * mf.getUnits();
+            currentMFAmount = currentMFAmount + currentValue;
         }
-        mfAmounts.put("currentMFAmount",currentMFAmount);
         mfAmounts.put("investedMFAmount",investedMFAmount);
+        mfAmounts.put("currentMFAmount",currentMFAmount);
+        mfAmounts.put("totalGain",currentMFAmount - investedMFAmount);
         return mfAmounts;
     }
 
-    private Double saveUserLoan(UserWealth userWealthRequest, Boolean saveFlag) {
-        Double loanDebt = 0.0;
-        if(saveFlag && userWealthRequest.getLoans() != null) {
-            for (LoanDeatils loan : userWealthRequest.getLoans()) {
-                Loan loanEntity = mappingLoanEntity(loan, userWealthRequest);
-                loanRepo.save(loanEntity);
+    private Double saveUserLoan(UserWealth userWealthRequest, Boolean saveFlag) throws Exception {
+        try {
+            Double loanDebt = 0.0;
+            Boolean exsitsLoanAccountNumber = false;
+            if (saveFlag && userWealthRequest.getLoans() != null) {
+                for (LoanDetails loan : userWealthRequest.getLoans()) {
+                    Loan loanEntity = mappingLoanEntity(loan, userWealthRequest);
+                    if (!updateFlag.equalsIgnoreCase("update")) {
+                        exsitsLoanAccountNumber = loanRepo.existsByLoanAccountNumber(loan.getLoanAccountNumber());
+                    }
+                    if (exsitsLoanAccountNumber) {
+                        throw new ResourceNotFoundException("Loan account number you have entered is not found");
+                    }
+                    loanRepo.save(loanEntity);
+                }
             }
-        }
-        List<Loan> loanList = loanRepo.findByUserId(userWealthRequest.getUserId());
-        if(loanList == null){
-            loanDebt = 0.0;
-        }else { loanDebt = totalOutStandingAmount(loanList); }
-        return loanDebt;
+            List<Loan> loanList = loanRepo.findByUserId(userId);
+            if (loanList == null) {
+                loanDebt = 0.0;
+            } else {
+                loanDebt = totalOutStandingAmount(loanList);
+            }
+            return loanDebt;
+        }catch (ResourceNotFoundException ex) { throw new ResourceNotFoundException(ex.getMessage());
+        }catch (ValidationException ex){ throw new ValidationErrorException(ex.getMessage());
+        }catch (Exception ex){ throw new Exception(ex.getMessage());}
     }
 
     private Double totalOutStandingAmount(List<Loan> loanList) {
@@ -136,13 +183,19 @@ public class UserWealthService {
 
     private Double saveUserDeposits(UserWealth userWealthRequest, Boolean saveFlag) {
         Double availableDeposits = 0.0;
+        Boolean exsitsDepositAccountNumber = false;
         if(saveFlag && userWealthRequest.getDeposits() != null) {
             for (DepositDetails deposit : userWealthRequest.getDeposits()) {
                 Deposit depositEntity = mappingDepositEntity(deposit, userWealthRequest);
+                if(!updateFlag.equalsIgnoreCase("update")){
+                    exsitsDepositAccountNumber = depositRepo.existsByDepositAccountNumber(deposit.getDepositAccountNumber());}
+                if(exsitsDepositAccountNumber){
+                    throw new ResourceNotFoundException("Account number you have entered is not found");
+                }
                 depositRepo.save(depositEntity);
             }
         }
-        List<Deposit> depositList = depositRepo.findByUserId(userWealthRequest.getUserId());
+        List<Deposit> depositList = depositRepo.findByUserId(userId);
         if(depositList == null) {
             availableDeposits = 0.0;
         }else { availableDeposits = getTotalDeposits(depositList); }
@@ -157,20 +210,21 @@ public class UserWealthService {
         return availableDeposits;
     }
 
-    private Double saveUserAccounts(UserWealth userWealthRequest,Boolean saveFlag) {
+    private Double saveUserAccounts(UserWealth userWealthRequest,Boolean saveFlag) throws Exception {
         Double availableSavings = 0.0;
+        Boolean exsitsAccountAnumber = false;
         if(saveFlag && userWealthRequest.getAccounts() != null) {
             for (AccountDetails account : userWealthRequest.getAccounts()) {
-                try {
                     Account accountEntity = mappingAccountEntity(account, userWealthRequest);
+                    if(!updateFlag.equalsIgnoreCase("update")){
+                        exsitsAccountAnumber = accountRepo.existsByAccountNumber(account.getAccountNumber());}
+                    if(exsitsAccountAnumber){
+                        throw new ResourceNotFoundException("Account number you have entered" + account.getAccountNumber() + " alredy is present");
+                    }
                     accountRepo.save(accountEntity);
-                } catch (Exception e) {
-                    logger.info("Encountering an exception during the saving of account data, Exception Details {}" +e.getMessage());
-                    throw new IllegalArgumentException("Verify that the input JSON data does not adhere to the expected JSON format.");
-                }
             }
         }
-        List<Account> accountsList = accountRepo.findByUserId(userWealthRequest.getUserId());
+        List<Account> accountsList = accountRepo.findByUserId(userId);
         if(accountsList == null){
             availableSavings = 0.0;
         }else {  availableSavings = getTotalSavings(accountsList); }
@@ -187,55 +241,112 @@ public class UserWealthService {
 
     private Stocks mappingStockEntity(StocksDetails stock, UserWealth userWealth) {
         Stocks stockEntity = new Stocks();
+        if(updateFlag.equalsIgnoreCase("update")){
+            stockEntity = stockRepo.findByDematAccountNumber(stock.getDematAccountNumber());
+            if(stockEntity == null){
+                throw new ResourceNotFoundException("Demat account number of stock is not found to update");
+            }
+        }
         stockEntity.setStockName(stock.getStockName());
         stockEntity.setQuantity(stock.getQuantity());
-        stockEntity.setUser(getUser(userWealth.getUserId()));
+        stockEntity.setUser(getUser(userId));
         stockEntity.setDematAccountNumber(stock.getDematAccountNumber());
         stockEntity.setStockPurchesdPrice(stock.getStockPurchesdPrice());
-        stockEntity.setStockSellingPrice(stock.getStockSellingPrice());
-        stockEntity.setStockPrice(stock.getStockPrice());
         return stockEntity;
     }
 
-    private MutualFunds mappingMfEntity(MutualFundDeatils mf, UserWealth userWealth) {
+    private MutualFunds mappingMfEntity(MutualFundDetails mf, UserWealth userWealth) {
         MutualFunds mfEntity = new MutualFunds();
-        mfEntity.setNav(mf.getNav());
-        mfEntity.setUser(getUser(userWealth.getUserId()));
+        if(updateFlag.equalsIgnoreCase("update")){
+            mfEntity = mutualFundRepo.findByDematAccountNumber(mf.getDematAccountNumber());
+            if(mfEntity == null){
+                throw new ResourceNotFoundException("Demat account number of mf is not found to update");
+            }
+        }
+        mfEntity.setAvgNav(mf.getAvgNav());
+        mfEntity.setUser(getUser(userId));
         mfEntity.setUnits(mf.getUnits());
         mfEntity.setMfName(mf.getMfName());
         mfEntity.setDematAccountNumber(mf.getDematAccountNumber());
-        mfEntity.setTotalInvestments((mf.getTotalInvestments()));
         return mfEntity;
     }
 
-    private Loan mappingLoanEntity(LoanDeatils loan, UserWealth userWealth) {
+    private Loan mappingLoanEntity(LoanDetails loan, UserWealth userWealth) {
         Loan loanEntity = new Loan();
-        loanEntity.setDescription(loan.getDescription());
+        if(loan.getOutstandingAmount() >= loan.getPrincipleAmount()){
+            throw new ValidationException("Principal amount must be greater than outstanding amount");
+        }
+        if(updateFlag.equalsIgnoreCase("update")){
+            loanEntity = loanRepo.findByLoanAccountNumber(loan.getLoanAccountNumber());
+            if(loanEntity == null){
+                throw new ResourceNotFoundException("Loan account number id not found to update");
+            }
+        }
         loanEntity.setLoanType(loan.getLoanType());
         loanEntity.setLoanAccountNumber(loan.getLoanAccountNumber());
         loanEntity.setPrincipleAmount(loan.getPrincipleAmount());
         loanEntity.setOutstandingAmount(loan.getOutstandingAmount());
-        loanEntity.setUser(getUser(userWealth.getUserId()));
+        loanEntity.setUser(getUser(userId));
         return loanEntity;
     }
 
     private Deposit mappingDepositEntity(DepositDetails deposit, UserWealth userWealth) {
         Deposit depositEntity = new Deposit();
+        if(updateFlag.equalsIgnoreCase("update")){
+            depositEntity = depositRepo.findByDepositAccountNumber(deposit.getDepositAccountNumber());
+            if(depositEntity == null){
+                throw new ResourceNotFoundException("Deposit Account number you have entered is not found to update");
+            }
+        }
         depositEntity.setDepositAccountNumber(deposit.getDepositAccountNumber());
         depositEntity.setDepositType(deposit.getDepositType());
         depositEntity.setAmount(deposit.getAmount());
-        depositEntity.setUser(getUser(userWealth.getUserId()));
+        depositEntity.setUser(getUser(userId));
         return depositEntity;
     }
 
-    private Account mappingAccountEntity(AccountDetails account,UserWealth userWealth) {
-        Account accEntity = new Account();
-        accEntity.setAccountNumber(account.getAccountNumber());
-        accEntity.setBalance(account.getBalance());
-        accEntity.setBranch(account.getBranch());
-        accEntity.setUser(getUser(userWealth.getUserId()));
-        return accEntity;
+    private Account mappingAccountEntity(AccountDetails account,UserWealth userWealth) throws Exception {
+        try {
+            Account accEntity = new Account();
+            Map<String ,String> validBranch = findValidBranch(wealthService.getAllBankDetails(),account.getBranch());
+            if(validBranch.size() == 0){
+                throw new ResourceNotFoundException("please pick the official banks shotName");
+            }
+            if (updateFlag.equalsIgnoreCase("update")) {
+                accEntity = accountRepo.findByAccountNumber(account.getAccountNumber());
+                if (accEntity == null) {
+                    throw new ResourceNotFoundException("Account number you have entered is not found to update");
+                }
+            }
+            accEntity.setAccountNumber(account.getAccountNumber());
+            accEntity.setBalance(account.getBalance());
+            accEntity.setBranch(validBranch.get(account.getBranch()));
+            accEntity.setUser(getUser(userId));
+            return accEntity;
+        }catch (ResourceNotFoundException ex){
+            throw new ResourceNotFoundException(ex.getMessage());
+        }catch (Exception ex){
+            throw new Exception(ex.getMessage());
+        }
     }
+
+    private Map<String ,String> findValidBranch(List<BankDetails> allBankDetails, String branch) {
+        Set<BankDetails> bankBranch = new HashSet<>(allBankDetails);
+        Map<String ,String> pickedBank  = containsBankWithShortName(allBankDetails,branch);
+        return pickedBank;
+    }
+
+    private Map<String ,String> containsBankWithShortName(List<BankDetails> allBankDetails, String branch) {
+        Map<String ,String> pickedBank = new HashMap<>();
+        for(BankDetails bank : allBankDetails){
+            if(bank.getShortName().equalsIgnoreCase(branch)){
+                pickedBank.put(bank.getShortName(),bank.getFullName());
+                break;
+            }
+        }
+        return pickedBank;
+    }
+
 
     public User getUser(Long userId){
         return userRepo.findById(userId).orElse(null);
@@ -246,9 +357,98 @@ public class UserWealthService {
         return user;
     }
 
-    public UserWealth getUserWealth(Long UserId){
-        User user = getUser(UserId);
+    public UserWealthResponse getUserWealth(Long UserId) throws Exception {
+            User user = getUser(UserId);
+            UserWealth detailedUserWealthData = new UserWealth();
+            detailedUserWealthData = mappingEntityToDtoForWealth(user);
+            UserWealthResponse userWealth =  getTotalUserWealth(detailedUserWealthData);
+            return userWealth;
+    }
+
+    private UserWealthResponse getTotalUserWealth(UserWealth detailedUserWealthData) throws Exception {
+        getWealthTriggerFlag = true;
+        UserWealthResponse userWealth = saveWealthData(detailedUserWealthData);
+        getWealthTriggerFlag = false;
+        return userWealth;
+    }
+
+    private UserWealth mappingEntityToDtoForWealth(User user) {
         UserWealth userWealth = new UserWealth();
+        userWealth.setAccounts(mapAccountDto(user.getAccount()));
+        userWealth.setDeposits(mapDepositDto(user.getDeposits()));
+        userWealth.setLoans(mapLoanDto(user.getLoans()));
+        userWealth.setMutualFunds(mapMutualFundDto(user.getMutualFunds()));
+        userWealth.setStocks(mapStockDto(user.getStocks()));
+        return  userWealth;
+    }
+
+    private List<StocksDetails> mapStockDto(List<Stocks> stocks) {
+        List<StocksDetails> stockList = new ArrayList<>();
+        for(Stocks s : stocks){
+            StocksDetails stockDto = new StocksDetails();
+            stockDto.setDematAccountNumber(s.getDematAccountNumber());
+            stockDto.setStockName(s.getStockName());
+            stockDto.setQuantity(s.getQuantity());
+            stockDto.setStockPurchesdPrice(s.getStockPurchesdPrice());
+            stockList.add(stockDto);
+        }
+        return stockList;
+    }
+
+    private List<MutualFundDetails> mapMutualFundDto(List<MutualFunds> mutualFunds) {
+        List<MutualFundDetails> mutualFundList = new ArrayList<>();
+        for(MutualFunds mf : mutualFunds){
+            MutualFundDetails mfDto =new MutualFundDetails();
+            mfDto.setDematAccountNumber(mf.getDematAccountNumber());
+            mfDto.setMfName(mf.getMfName());
+            mfDto.setUnits(mf.getUnits());
+            mfDto.setAvgNav(mf.getAvgNav());
+            mutualFundList.add(mfDto);
+        }
+        return mutualFundList;
+    }
+
+    private List<LoanDetails> mapLoanDto(List<Loan> loans) {
+        List<LoanDetails> loanList = new ArrayList<>();
+        for(Loan l : loans){
+            LoanDetails loanDto = new LoanDetails();
+            loanDto.setLoanAccountNumber(l.getLoanAccountNumber());
+            loanDto.setLoanType(l.getLoanType());
+            loanDto.setPrincipleAmount(l.getPrincipleAmount());
+            loanDto.setOutstandingAmount(l.getOutstandingAmount());
+            loanList.add(loanDto);
+        }
+        return loanList;
+    }
+
+    private List<DepositDetails> mapDepositDto(List<Deposit> deposits) {
+        List<DepositDetails> depositList = new ArrayList<>();
+        for(Deposit dep : deposits){
+            DepositDetails depositDto = new DepositDetails();
+            depositDto.setDepositAccountNumber(dep.getDepositAccountNumber());
+            depositDto.setAmount(dep.getAmount());
+            depositDto.setDepositType(dep.getDepositType());
+            depositList.add(depositDto);
+        }
+        return depositList;
+    }
+
+    private List<AccountDetails> mapAccountDto(List<Account> account) {
+        List<AccountDetails> accountsList = new ArrayList<>();
+        for(Account acc : account){
+            AccountDetails accountDto = new AccountDetails();
+            accountDto.setAccountNumber(acc.getAccountNumber());
+            accountDto.setBalance(acc.getBalance());
+            accountDto.setBranch(acc.getBranch());
+            accountsList.add(accountDto);
+        }
+        return accountsList;
+    }
+
+    public UserWealthResponse updateUserWealth(UserWealth userWealthRequest) throws Exception {
+        updateFlag = "update";
+        UserWealthResponse userWealth = saveWealthData(userWealthRequest);
+        updateFlag = "";
         return userWealth;
     }
 }

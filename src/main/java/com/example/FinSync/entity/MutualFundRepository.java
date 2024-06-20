@@ -7,4 +7,6 @@ import java.util.UUID;
 
 public interface MutualFundRepository extends JpaRepository<MutualFunds, UUID> {
     List<MutualFunds> findByUserId(Long userId);
+
+    MutualFunds findByDematAccountNumber(String dematAccountNumber);
 }

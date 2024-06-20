@@ -53,10 +53,19 @@ public class FinSyncResponseDetails {
             this.status="error";
             if(statusCode.equalsIgnoreCase("400")){
                 this.data = data;
-                this.message = "Validation Error";
             }
         }
         this.statusCode = statusCode;
 
+    }
+
+    @Override
+    public String toString() {
+        return "{" +
+                "statusCode='" + statusCode + '\'' +
+                ", status='" + status + '\'' +
+                ", message='" + message + '\'' +
+                ", data=" + data +
+                '}';
     }
 }

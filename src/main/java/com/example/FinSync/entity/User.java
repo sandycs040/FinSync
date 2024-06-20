@@ -15,17 +15,19 @@ import java.util.List;
 @Table(name = "users")
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "user_id")
     private Long id;
 
     @Column(name="user_name",nullable = false)
     private String userName;
 
-    @Column(name="email",nullable = false, unique = true)
+    @Column(name="email",nullable = false)
     private String email;
 
+
     @Column(name="password",nullable = false)
+    @Convert(converter = com.example.FinSync.util.PasswordEncryptor.class)
     private String password;
 
     @OneToMany(fetch = FetchType.LAZY,mappedBy = "user",cascade = CascadeType.ALL)

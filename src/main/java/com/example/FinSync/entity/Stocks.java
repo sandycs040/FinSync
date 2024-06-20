@@ -27,7 +27,7 @@ public class Stocks {
     @JsonBackReference
     private User user;
 
-    @Column(name = "demat_number")
+    @Column(name = "demat_number",unique = true)
     private String dematAccountNumber;
 
     @Column(name = "stock_name")
@@ -45,7 +45,7 @@ public class Stocks {
     @Column(name = "stock_price")
     private double stockPrice;
 
-    @Column(name = "stock_selling_price",nullable = false,unique = true)
+    @Column(name = "stock_selling_price")
     private double stockSellingPrice;
 
     @CreationTimestamp

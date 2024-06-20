@@ -12,4 +12,6 @@ public class FinSyncApplication {
 		SpringApplication.run(FinSyncApplication.class, args);
 	}
 
+
+
 }

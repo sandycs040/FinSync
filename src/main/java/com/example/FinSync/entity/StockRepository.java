@@ -7,4 +7,6 @@ import java.util.UUID;
 
 public interface StockRepository extends JpaRepository<Stocks, UUID> {
     List<Stocks> findByUserId(Long userId);
+
+    Stocks findByDematAccountNumber(String dematAccountNumber);
 }

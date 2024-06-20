@@ -25,7 +25,7 @@ public class Account {
     @JsonBackReference
     private User user;
 
-    @Column(name = "account_number",nullable = false, unique = true)
+    @Column(name = "account_number", unique = true)
     private String accountNumber;
 
     @Column(name = "branch_name")
@@ -33,9 +33,6 @@ public class Account {
 
     @Column(name = "balance")
     private double balance;
-
-    @Column(name = "description")
-    private String description;
 
     @Column(name = "create_at")
     @CreationTimestamp
@@ -46,5 +43,5 @@ public class Account {
     private LocalDateTime updatedAt;
 
     @Column(name = "deleted_flag")
-    private boolean deleted_flag;
+    private boolean deleted_flag = false;
 }

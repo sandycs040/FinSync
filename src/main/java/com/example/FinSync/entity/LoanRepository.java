@@ -7,4 +7,8 @@ import java.util.UUID;
 
 public interface LoanRepository extends JpaRepository<Loan, UUID> {
     List<Loan> findByUserId(Long userId);
+
+    Loan findByLoanAccountNumber(String loanAccountNumber);
+
+    Boolean existsByLoanAccountNumber(String loanAccountNumber);
 }
