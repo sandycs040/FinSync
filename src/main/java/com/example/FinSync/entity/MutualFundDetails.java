@@ -1,5 +1,7 @@
 package com.example.FinSync.entity;
 
+import com.example.FinSync.validations.ValidMutualFundName;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
@@ -9,9 +11,12 @@ import lombok.Data;
 public class MutualFundDetails {
 
     @NotNull(message = "Demat Account number cannot be empty")
+    @NotEmpty(message = "Account number cannot be empty")
+    @Pattern(regexp = "^[0-9]+$", message = "Account number must contain only numbers")
     private String dematAccountNumber;
 
     @NotNull(message = "Mutual fund name cannot be empty")
+    @ValidMutualFundName
     private String mfName;
 
     @NotNull(message = "MF units cannot be empty")

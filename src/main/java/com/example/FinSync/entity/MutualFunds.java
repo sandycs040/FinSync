@@ -23,7 +23,7 @@ public class MutualFunds {
     @JsonBackReference
     private User user;
 
-    @Column(name = "demat_number",nullable = false,unique = true)
+    @Column(name = "demat_number")
     private String dematAccountNumber;
 
     @Column(name = "mf_name")

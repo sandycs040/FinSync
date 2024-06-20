@@ -22,5 +22,4 @@ public class UserDetails {
     @NotEmpty(message = "confirmPassword cannot be blank")
     @Size(min = 8, message = "confirmPassword must be at least 8 characters")
     private String confirmPassword;
-
 }

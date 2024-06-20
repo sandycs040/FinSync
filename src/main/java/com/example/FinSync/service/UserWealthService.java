@@ -39,6 +39,9 @@ public class UserWealthService {
     @Autowired
     StockRepository stockRepo;
 
+    @Autowired
+    JwtService jwtService;
+
     private static final Logger logger = Logger.getLogger(UserWealthService.class.getName());
 
     Double nav = 63.0;
@@ -46,11 +49,14 @@ public class UserWealthService {
     Long userId = 1L;
     Boolean getWealthTriggerFlag = false;
     String updateFlag = "";
-    public UserWealthResponse saveWealthData(UserWealth userWealthRequest) throws Exception {
+    public UserWealthResponse saveWealthData(UserWealth userWealthRequest,String token) throws Exception {
         Double availableSavings = 0.0, availableDeposits = 0.0, loanDebt = 0.0, investedStocksAmount = 0.0, currentStocksAmount = 0.0, investedMFAmount = 0.0, currentMFAmount = 0.0;
         Map<String, Double> stockGain = new HashMap<>();
         Map<String, Double> mfGain = new HashMap<>();
         Boolean saveFlag = true;
+
+        //set userId based on Token passd
+        User user = setUserIdBasedOnToken(token);
         try {
             saveFlag = (getWealthTriggerFlag != true) ? true : false;
             System.out.println(" SAVED DAta : save flag : " + saveFlag + " | wealth flag | " + getWealthTriggerFlag);
@@ -66,6 +72,14 @@ public class UserWealthService {
            throw new Exception(ex.getMessage());
        }
         return new UserWealthResponse(availableSavings,availableDeposits,loanDebt,stockGain.get("investedStocksAmount") == null ? 0.0 :stockGain.get("investedStocksAmount"),stockGain.get("currentStocksAmount") == null ? 0.0 : stockGain.get("currentStocksAmount"), stockGain.get("stockTotalGain") == null ? 0.0 :stockGain.get("stockTotalGain"),mfGain.get("investedMFAmount") == null ? 0.0 : mfGain.get("investedMFAmount"),mfGain.get("currentMFAmount") == null ? 0.0 : mfGain.get("currentMFAmount"),mfGain.get("totalGain")== null ? 0.0 : mfGain.get("totalGain"));
+    }
+
+    private User setUserIdBasedOnToken(String token) throws ValidationErrorException {
+        String userName = jwtService.extractUsername(token);
+        User user = userRepo.findByUserName(userName);
+        if(user == null){ throw new ResourceNotFoundException("User not found");}
+        Boolean isValidToken = jwtService.isTokenValid(token,user);
+        if(isValidToken){ userId = user.getId();}else { throw  new ValidationErrorException("Token is not valid ");}return user;
     }
 
     private Map<String, Double> saveUserStocks(UserWealth userWealthRequest, Boolean saveFlag) {
@@ -95,10 +109,10 @@ public class UserWealthService {
         Map<String,Double> stockInvestmentsAmount = new HashMap<>();
         Double currentStocksAmount = 0.0, investedStocksAmount = 0.0, totalGain = 0.0;
         for(Stocks stock : stockList){
-            double currentPrice = stock.getStockSellingPrice() == 0.0 ? stock.getStockPrice() : stock.getStockSellingPrice();
-            double investedPrice = stock.getStockPurchesdPrice();
+            double currentNav = (nav);
+            double investedPrice = (stock.getStockPurchesdPrice());
             currentStocksAmount = currentStocksAmount +
-                    (stock.getQuantity() * currentPrice);
+                    (stock.getQuantity() * currentNav);
             investedStocksAmount = investedStocksAmount + (stock.getQuantity() * investedPrice);
             totalGain = stock.getQuantity() * stockPrice;
         }
@@ -246,6 +260,13 @@ public class UserWealthService {
             if(stockEntity == null){
                 throw new ResourceNotFoundException("Demat account number of stock is not found to update");
             }
+            Boolean isStockExsits = isStockExsistBasedOnNameAndUserId(stock.getStockName(),userId);
+            if(isStockExsits){
+                Integer totalQty = stockEntity.getQuantity() + stock.getQuantity();
+                Double avgPurchasedPrice = ((stock.getStockPurchesdPrice()*stock.getQuantity()) + (stockEntity.getStockPurchesdPrice()*stockEntity.getQuantity()))/totalQty;
+                stock.setQuantity(totalQty);
+                stock.setStockPurchesdPrice(avgPurchasedPrice);
+            }
         }
         stockEntity.setStockName(stock.getStockName());
         stockEntity.setQuantity(stock.getQuantity());
@@ -262,6 +283,13 @@ public class UserWealthService {
             if(mfEntity == null){
                 throw new ResourceNotFoundException("Demat account number of mf is not found to update");
             }
+            Boolean isFundExsits = isFundExsistBasedOnNameAndUserId(mf.getMfName(),userId);
+            if(isFundExsits){
+                Double avgUnit = mf.getUnits()+mf.getUnits();
+                Double avgPurchasedNav = (mf.getAvgNav() + mfEntity.getAvgNav());
+                mf.setUnits(avgUnit);
+                mf.setAvgNav(avgPurchasedNav);
+            }
         }
         mfEntity.setAvgNav(mf.getAvgNav());
         mfEntity.setUser(getUser(userId));
@@ -269,6 +297,25 @@ public class UserWealthService {
         mfEntity.setMfName(mf.getMfName());
         mfEntity.setDematAccountNumber(mf.getDematAccountNumber());
         return mfEntity;
+    }
+
+    private Boolean isFundExsistBasedOnNameAndUserId(String mfName, Long userId) {
+        List<MutualFunds> mutualFunds = mutualFundRepo.findByUserId(userId);
+        for(MutualFunds mf: mutualFunds){
+            if(mf.getMfName().equalsIgnoreCase(mfName)){
+                return true;
+            }
+        }
+        return false;
+    }
+    private Boolean isStockExsistBasedOnNameAndUserId(String stockName, Long userId) {
+        List<Stocks> stocks = stockRepo.findByUserId(userId);
+        for(Stocks s: stocks){
+            if(s.getStockName().equalsIgnoreCase(stockName)){
+                return true;
+            }
+        }
+        return false;
     }
 
     private Loan mappingLoanEntity(LoanDetails loan, UserWealth userWealth) {
@@ -357,17 +404,17 @@ public class UserWealthService {
         return user;
     }
 
-    public UserWealthResponse getUserWealth(Long UserId) throws Exception {
-            User user = getUser(UserId);
-            UserWealth detailedUserWealthData = new UserWealth();
+    public UserWealthResponse getUserWealth(String token) throws Exception {
+        User user= setUserIdBasedOnToken(token);
+        UserWealth detailedUserWealthData = new UserWealth();
             detailedUserWealthData = mappingEntityToDtoForWealth(user);
-            UserWealthResponse userWealth =  getTotalUserWealth(detailedUserWealthData);
+            UserWealthResponse userWealth =  getTotalUserWealth(detailedUserWealthData,token);
             return userWealth;
     }
 
-    private UserWealthResponse getTotalUserWealth(UserWealth detailedUserWealthData) throws Exception {
+    private UserWealthResponse getTotalUserWealth(UserWealth detailedUserWealthData,String token) throws Exception {
         getWealthTriggerFlag = true;
-        UserWealthResponse userWealth = saveWealthData(detailedUserWealthData);
+        UserWealthResponse userWealth = saveWealthData(detailedUserWealthData,token);
         getWealthTriggerFlag = false;
         return userWealth;
     }
@@ -445,10 +492,9 @@ public class UserWealthService {
         return accountsList;
     }
 
-    public UserWealthResponse updateUserWealth(UserWealth userWealthRequest) throws Exception {
+    public UserWealthResponse updateUserWealth(UserWealth userWealthRequest,String token) throws Exception {
         updateFlag = "update";
-        UserWealthResponse userWealth = saveWealthData(userWealthRequest);
-        updateFlag = "";
+        UserWealthResponse userWealth = saveWealthData(userWealthRequest, token);updateFlag = "";
         return userWealth;
     }
 }

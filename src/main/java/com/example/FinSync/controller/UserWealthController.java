@@ -30,18 +30,22 @@ public class UserWealthController {
     private static final Logger logger = Logger.getLogger(UserWealthController.class.getName());
 
     @PostMapping("/userWealth")
-    public ResponseEntity<?> saveUserWealth(@Valid @RequestBody  UserWealth userWealthRequest) throws Exception {
+    public ResponseEntity<?> saveUserWealth(@RequestHeader("Authorization") String authorizationHeader,@Valid @RequestBody  UserWealth userWealthRequest) throws Exception {
         logger.info("Received POST Request for User Wealth API {}"+userWealthRequest);
-        return FinSyncResponseUtils.generateSuccessResponse(userWealthService.saveWealthData(userWealthRequest));
+        // Extract token
+        String token = authorizationHeader.replace("Bearer ", "");
+        return FinSyncResponseUtils.generateSuccessResponse(userWealthService.saveWealthData(userWealthRequest,token));
     }
 
     @GetMapping("/userWealth")
-    public ResponseEntity<?> getUserWealth(@RequestParam("userId") Long userId) throws Exception {
-        return FinSyncResponseUtils.generateSuccessResponse(userWealthService.getUserWealth(userId));
+    public ResponseEntity<?> getUserWealth(@RequestHeader("Authorization") String authorizationHeader,@RequestParam("userId") Long userId) throws Exception {
+        String token = authorizationHeader.replace("Bearer ", "");
+        return FinSyncResponseUtils.generateSuccessResponse(userWealthService.getUserWealth(token));
     }
 
     @PutMapping("/userWealth")
-    public ResponseEntity<?> updateUserWealth(@Valid @RequestBody UserWealth userWealthRequest) throws Exception {
-        return FinSyncResponseUtils.generateSuccessResponse(userWealthService.updateUserWealth(userWealthRequest));
+    public ResponseEntity<?> updateUserWealth(@RequestHeader("Authorization") String authorizationHeader,@Valid @RequestBody UserWealth userWealthRequest) throws Exception {
+        String token = authorizationHeader.replace("Bearer ", "");
+        return FinSyncResponseUtils.generateSuccessResponse(userWealthService.updateUserWealth(userWealthRequest,token));
     }
 }
