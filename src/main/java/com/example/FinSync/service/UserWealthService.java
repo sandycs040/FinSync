@@ -2,6 +2,8 @@ package com.example.FinSync.service;
 
 import com.example.FinSync.entity.*;
 import com.example.FinSync.entity.mongoWealth.BankDetails;
+import com.example.FinSync.entity.mongoWealth.MutualFundPrice;
+import com.example.FinSync.entity.mongoWealth.StockPrice;
 import com.example.FinSync.exception.ResourceNotFoundException;
 import com.example.FinSync.exception.ValidationErrorException;
 import com.example.FinSync.utils.FinSyncResponseUtils;
@@ -49,6 +51,8 @@ public class UserWealthService {
     Long userId = 1L;
     Boolean getWealthTriggerFlag = false;
     String updateFlag = "";
+
+    //save user wealth data
     public UserWealthResponse saveWealthData(UserWealth userWealthRequest,String token) throws Exception {
         Double availableSavings = 0.0, availableDeposits = 0.0, loanDebt = 0.0, investedStocksAmount = 0.0, currentStocksAmount = 0.0, investedMFAmount = 0.0, currentMFAmount = 0.0;
         Map<String, Double> stockGain = new HashMap<>();
@@ -73,6 +77,7 @@ public class UserWealthService {
        }
         return new UserWealthResponse(availableSavings,availableDeposits,loanDebt,stockGain.get("investedStocksAmount") == null ? 0.0 :stockGain.get("investedStocksAmount"),stockGain.get("currentStocksAmount") == null ? 0.0 : stockGain.get("currentStocksAmount"), stockGain.get("stockTotalGain") == null ? 0.0 :stockGain.get("stockTotalGain"),mfGain.get("investedMFAmount") == null ? 0.0 : mfGain.get("investedMFAmount"),mfGain.get("currentMFAmount") == null ? 0.0 : mfGain.get("currentMFAmount"),mfGain.get("totalGain")== null ? 0.0 : mfGain.get("totalGain"));
     }
+
 
     private User setUserIdBasedOnToken(String token) throws ValidationErrorException {
         String userName = jwtService.extractUsername(token);
@@ -109,10 +114,13 @@ public class UserWealthService {
         Map<String,Double> stockInvestmentsAmount = new HashMap<>();
         Double currentStocksAmount = 0.0, investedStocksAmount = 0.0, totalGain = 0.0;
         for(Stocks stock : stockList){
-            double currentNav = (nav);
+            //get the list of stocks to get stock price from mongoDB
+            List<StockPrice> list = wealthService.getAllStockPrices();
+
+            double currentStockPrice = getCurrentStockPrice(list,stock.getStockName());
             double investedPrice = (stock.getStockPurchesdPrice());
             currentStocksAmount = currentStocksAmount +
-                    (stock.getQuantity() * currentNav);
+                    (stock.getQuantity() * currentStockPrice);
             investedStocksAmount = investedStocksAmount + (stock.getQuantity() * investedPrice);
             totalGain = stock.getQuantity() * stockPrice;
         }
@@ -120,6 +128,17 @@ public class UserWealthService {
         stockInvestmentsAmount.put("investedStocksAmount",investedStocksAmount);
         stockInvestmentsAmount.put("stockTotalGain",totalGain);
         return stockInvestmentsAmount;
+    }
+
+    private double getCurrentStockPrice(List<StockPrice> list, String stockName) {
+        Double currentStockPrice= 0.0;
+        for (StockPrice stockPrice : list){
+            if(stockPrice.getName().equalsIgnoreCase(stockName)){
+                currentStockPrice = stockPrice.getPrice();
+                break;
+            }
+        }
+        return currentStockPrice;
     }
 
     private Map<String, Double> saveUserMfs(UserWealth userWealthRequest, Boolean saveFlag) {
@@ -150,13 +169,27 @@ public class UserWealthService {
         for(MutualFunds mf: mutualFundList){
             Double totalInvested = mf.getAvgNav() * mf.getUnits();
             investedMFAmount = investedMFAmount + totalInvested;
-            Double currentValue = nav * mf.getUnits();
+            //get the list of mutual fund and current nav
+            List<MutualFundPrice> list = wealthService.getAllMutualFundPrices();
+            Double currentNav = getCurrentNav(list,mf.getMfName());
+            Double currentValue = currentNav * mf.getUnits();
             currentMFAmount = currentMFAmount + currentValue;
         }
         mfAmounts.put("investedMFAmount",investedMFAmount);
         mfAmounts.put("currentMFAmount",currentMFAmount);
         mfAmounts.put("totalGain",currentMFAmount - investedMFAmount);
         return mfAmounts;
+    }
+
+    private Double getCurrentNav(List<MutualFundPrice> list, String mfName) {
+        Double currentNav = 0.0;
+        for (MutualFundPrice mfprice : list){
+            if(mfprice.getName().equalsIgnoreCase(mfName)){
+                currentNav = mfprice.getNav();
+                break;
+            }
+        }
+        return currentNav;
     }
 
     private Double saveUserLoan(UserWealth userWealthRequest, Boolean saveFlag) throws Exception {

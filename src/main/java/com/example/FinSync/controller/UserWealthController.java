@@ -38,7 +38,7 @@ public class UserWealthController {
     }
 
     @GetMapping("/userWealth")
-    public ResponseEntity<?> getUserWealth(@RequestHeader("Authorization") String authorizationHeader,@RequestParam("userId") Long userId) throws Exception {
+    public ResponseEntity<?> getUserWealth(@RequestHeader("Authorization") String authorizationHeader) throws Exception {
         String token = authorizationHeader.replace("Bearer ", "");
         return FinSyncResponseUtils.generateSuccessResponse(userWealthService.getUserWealth(token));
     }

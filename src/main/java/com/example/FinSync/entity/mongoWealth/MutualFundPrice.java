@@ -28,4 +28,6 @@ public class MutualFundPrice {
     public String getName() {
         return name;
     }
+
+    public Double getNav() { return nav; }
 }
