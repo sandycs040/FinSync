@@ -29,7 +29,7 @@ public class UserWealthController {
 
     private static final Logger logger = Logger.getLogger(UserWealthController.class.getName());
 
-    @PostMapping("/userWealth")
+    @PostMapping("/userWealth1")
     public ResponseEntity<?> saveUserWealth(@RequestHeader("Authorization") String authorizationHeader,@Valid @RequestBody  UserWealth userWealthRequest) throws Exception {
         logger.info("Received POST Request for User Wealth API {}"+userWealthRequest);
         // Extract token
@@ -37,13 +37,13 @@ public class UserWealthController {
         return FinSyncResponseUtils.generateSuccessResponse(userWealthService.saveWealthData(userWealthRequest,token));
     }
 
-    @GetMapping("/userWealth")
+    @GetMapping("/userWealth2")
     public ResponseEntity<?> getUserWealth(@RequestHeader("Authorization") String authorizationHeader) throws Exception {
         String token = authorizationHeader.replace("Bearer ", "");
         return FinSyncResponseUtils.generateSuccessResponse(userWealthService.getUserWealth(token));
     }
 
-    @PutMapping("/userWealth")
+    @PutMapping("/userWealth3")
     public ResponseEntity<?> updateUserWealth(@RequestHeader("Authorization") String authorizationHeader,@Valid @RequestBody UserWealth userWealthRequest) throws Exception {
         String token = authorizationHeader.replace("Bearer ", "");
         return FinSyncResponseUtils.generateSuccessResponse(userWealthService.updateUserWealth(userWealthRequest,token));

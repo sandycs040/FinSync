@@ -7,6 +7,8 @@ import com.example.FinSync.entity.mongoWealth.StockPrice;
 import com.example.FinSync.exception.ResourceNotFoundException;
 import com.example.FinSync.exception.ValidationErrorException;
 import com.example.FinSync.utils.FinSyncResponseUtils;
+import com.example.FinSync.utils.LogConnectPoolStatus;
+import jakarta.transaction.Transactional;
 import jakarta.validation.ValidationException;
 import org.apache.coyote.BadRequestException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,7 +55,9 @@ public class UserWealthService {
     String updateFlag = "";
 
     //save user wealth data
+    @Transactional
     public UserWealthResponse saveWealthData(UserWealth userWealthRequest,String token) throws Exception {
+        //logConnectioPool.logConnectionPoolSttaus();
         Double availableSavings = 0.0, availableDeposits = 0.0, loanDebt = 0.0, investedStocksAmount = 0.0, currentStocksAmount = 0.0, investedMFAmount = 0.0, currentMFAmount = 0.0;
         Map<String, Double> stockGain = new HashMap<>();
         Map<String, Double> mfGain = new HashMap<>();
@@ -63,7 +67,6 @@ public class UserWealthService {
         User user = setUserIdBasedOnToken(token);
         try {
             saveFlag = (getWealthTriggerFlag != true) ? true : false;
-            System.out.println(" SAVED DAta : save flag : " + saveFlag + " | wealth flag | " + getWealthTriggerFlag);
             availableSavings = saveUserAccounts(userWealthRequest, saveFlag);
             availableDeposits = saveUserDeposits(userWealthRequest, saveFlag);
             loanDebt = saveUserLoan(userWealthRequest, saveFlag);

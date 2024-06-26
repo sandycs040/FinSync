@@ -1,5 +1,8 @@
 package com.example.FinSync.entity.authentication;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 public class SignInResponse {
     String token;
 
@@ -13,8 +16,12 @@ public class SignInResponse {
 
     @Override
     public String toString() {
-        return "{" +'\n'+
-                "token = '" + token + '\'' +'\n'+
-                '}';
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            return objectMapper.writeValueAsString(this);
+        } catch (JsonProcessingException e) {
+            //e.printStackTrace();
+            return "{}"; // Return empty object or handle exception as needed
+        }
     }
 }
