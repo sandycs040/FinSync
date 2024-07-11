@@ -36,34 +36,37 @@ public class FinSyncWealthException {
         Map<String,String> errors = new HashMap<>();
         errors.put("timestamp", LocalDateTime.now().toString());
         errors.put("cause",ex.getMessage());
-        //errors.put("request",request.toString());
+        errors.put("request",request.toString());
         String message = "Please check the input data";
         return FinSyncResponseUtils.generateErrorResponse(errors, message);
     }
 
     @ExceptionHandler(BadRequestException.class)
-    public ResponseEntity<?> handleBadRequestException(BadLocationException ex){
+    public ResponseEntity<?> handleBadRequestException(BadLocationException ex,WebRequest request){
         Map<String,String> errors = new HashMap<>();
         errors.put("timestamp" , LocalDateTime.now().toString());
         errors.put("cause",ex.getMessage());
+        errors.put("request",request.toString());
         String message = "bad request";
         return FinSyncResponseUtils.generateErrorResponse(errors,message);
     }
 
     @ExceptionHandler(ValidationErrorException.class)
-    public ResponseEntity<?> handleValidationException(ValidationErrorException ex){
+    public ResponseEntity<?> handleValidationException(ValidationErrorException ex, WebRequest request){
         Map<String,String> errors = new HashMap<>();
         errors.put("timestamp", LocalDateTime.now().toString());
         errors.put("cause",ex.getMessage());
+        errors.put("request",request.toString());
         String message = "Validation error";
         return FinSyncResponseUtils.generateErrorResponse(errors,message);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<?> handleFinSuncWealthGenricException(Exception ex){
+    public ResponseEntity<?> handleFinSuncWealthGenricException(Exception ex, WebRequest request){
         Map<String,String> errors = new HashMap<>();
         errors.put("timestamp", LocalDateTime.now().toString());
         errors.put("cause",ex.getMessage());
+        errors.put("request",request.toString());
         String message = "unexpected error occurred, please try again";
         return FinSyncResponseUtils.generateErrorResponse(errors,message);
     }

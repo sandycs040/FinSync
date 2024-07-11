@@ -56,6 +56,7 @@ public class AuthController {
         }
         return new ResponseEntity<>("Invalid Login Details", HttpStatus.BAD_REQUEST);
     }
+
     /** @noinspection unused*/
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<String> handleValidationException(ValidationException ex) {

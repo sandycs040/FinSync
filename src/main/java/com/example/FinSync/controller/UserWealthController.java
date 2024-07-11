@@ -29,21 +29,39 @@ public class UserWealthController {
 
     private static final Logger logger = Logger.getLogger(UserWealthController.class.getName());
 
-    @PostMapping("/userWealth1")
+    /**
+     * The User Wealth data which includes Accounts, deposit, Loan, Mutual funds, stocks details. this method will adds all to database.
+     *
+     * @param userWealthRequest all user data(Accounts, deposit, Loan, Mutual funds, stocks).
+     * @return UserWealthResponse which return the total wealth
+     */
+    @PostMapping("/userWealth")
     public ResponseEntity<?> saveUserWealth(@RequestHeader("Authorization") String authorizationHeader,@Valid @RequestBody  UserWealth userWealthRequest) throws Exception {
         logger.info("Received POST Request for User Wealth API {}"+userWealthRequest);
         // Extract token
         String token = authorizationHeader.replace("Bearer ", "");
-        return FinSyncResponseUtils.generateSuccessResponse(userWealthService.saveWealthData(userWealthRequest,token));
+        return FinSyncResponseUtils.generateSuccessResponse(userWealthService.handleUserWealth(userWealthRequest,token));
     }
 
-    @GetMapping("/userWealth2")
+    /**
+     * To get all user Wealth data as result(Accounts, deposit, Loan, Mutual funds, stocks).
+     *
+     * @param authorizationHeader : user specific token need to pass
+     * @return UserWealthResponse which return the total wealth
+     */
+    @GetMapping("/userWealth")
     public ResponseEntity<?> getUserWealth(@RequestHeader("Authorization") String authorizationHeader) throws Exception {
         String token = authorizationHeader.replace("Bearer ", "");
         return FinSyncResponseUtils.generateSuccessResponse(userWealthService.getUserWealth(token));
     }
 
-    @PutMapping("/userWealth3")
+    /**
+     * To Update User Wealth data that is Accounts, deposit, Loan, Mutual funds, stocks details can be updated based on the account number.
+     *
+     * @param userWealthRequest all user data(Accounts, deposit, Loan, Mutual funds, stocks).
+     * @return UserWealthResponse which return the total wealth
+     */
+    @PutMapping("/userWealth")
     public ResponseEntity<?> updateUserWealth(@RequestHeader("Authorization") String authorizationHeader,@Valid @RequestBody UserWealth userWealthRequest) throws Exception {
         String token = authorizationHeader.replace("Bearer ", "");
         return FinSyncResponseUtils.generateSuccessResponse(userWealthService.updateUserWealth(userWealthRequest,token));

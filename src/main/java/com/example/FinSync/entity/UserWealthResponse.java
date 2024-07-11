@@ -33,6 +33,6 @@ public class UserWealthResponse {
     private double currentMFAmount;
 
     @JsonSerialize(using = CurrencyInrSerializer.class)
-    private double totalGain;
+    private double totalMfGain;
 
 }

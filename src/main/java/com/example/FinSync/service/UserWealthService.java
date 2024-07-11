@@ -6,18 +6,15 @@ import com.example.FinSync.entity.mongoWealth.MutualFundPrice;
 import com.example.FinSync.entity.mongoWealth.StockPrice;
 import com.example.FinSync.exception.ResourceNotFoundException;
 import com.example.FinSync.exception.ValidationErrorException;
-import com.example.FinSync.utils.FinSyncResponseUtils;
-import com.example.FinSync.utils.LogConnectPoolStatus;
+import com.example.FinSync.utils.ModelMapper;
 import jakarta.transaction.Transactional;
 import jakarta.validation.ValidationException;
-import org.apache.coyote.BadRequestException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import java.util.*;
-import java.util.logging.Logger;
 
 @Service
 public class UserWealthService {
@@ -46,24 +43,22 @@ public class UserWealthService {
     @Autowired
     JwtService jwtService;
 
-    private static final Logger logger = Logger.getLogger(UserWealthService.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(UserWealthService.class.getName());
 
-    Double nav = 63.0;
-    Double stockPrice = 200.0;
     Long userId = 1L;
     Boolean getWealthTriggerFlag = false;
     String updateFlag = "";
 
     //save user wealth data
     @Transactional
-    public UserWealthResponse saveWealthData(UserWealth userWealthRequest,String token) throws Exception {
+    public UserWealthResponse handleUserWealth(UserWealth userWealthRequest,String token) throws Exception {
         //logConnectioPool.logConnectionPoolSttaus();
         Double availableSavings = 0.0, availableDeposits = 0.0, loanDebt = 0.0, investedStocksAmount = 0.0, currentStocksAmount = 0.0, investedMFAmount = 0.0, currentMFAmount = 0.0;
         Map<String, Double> stockGain = new HashMap<>();
         Map<String, Double> mfGain = new HashMap<>();
         Boolean saveFlag = true;
 
-        //set userId based on Token passd
+        //set userId based on Token passed
         User user = setUserIdBasedOnToken(token);
         try {
             saveFlag = (getWealthTriggerFlag != true) ? true : false;
@@ -81,7 +76,7 @@ public class UserWealthService {
         return new UserWealthResponse(availableSavings,availableDeposits,loanDebt,stockGain.get("investedStocksAmount") == null ? 0.0 :stockGain.get("investedStocksAmount"),stockGain.get("currentStocksAmount") == null ? 0.0 : stockGain.get("currentStocksAmount"), stockGain.get("stockTotalGain") == null ? 0.0 :stockGain.get("stockTotalGain"),mfGain.get("investedMFAmount") == null ? 0.0 : mfGain.get("investedMFAmount"),mfGain.get("currentMFAmount") == null ? 0.0 : mfGain.get("currentMFAmount"),mfGain.get("totalGain")== null ? 0.0 : mfGain.get("totalGain"));
     }
 
-
+    //Return userId based on Token
     private User setUserIdBasedOnToken(String token) throws ValidationErrorException {
         String userName = jwtService.extractUsername(token);
         User user = userRepo.findByUserName(userName);
@@ -115,21 +110,20 @@ public class UserWealthService {
 
     private Map<String, Double> getTotalInvestmentAmounts(List<Stocks> stockList) {
         Map<String,Double> stockInvestmentsAmount = new HashMap<>();
-        Double currentStocksAmount = 0.0, investedStocksAmount = 0.0, totalGain = 0.0;
+        Double currentStocksAmount = 0.0, investedStocksAmount = 0.0, totalProfit = 0.0;
         for(Stocks stock : stockList){
             //get the list of stocks to get stock price from mongoDB
             List<StockPrice> list = wealthService.getAllStockPrices();
-
             double currentStockPrice = getCurrentStockPrice(list,stock.getStockName());
             double investedPrice = (stock.getStockPurchesdPrice());
             currentStocksAmount = currentStocksAmount +
                     (stock.getQuantity() * currentStockPrice);
             investedStocksAmount = investedStocksAmount + (stock.getQuantity() * investedPrice);
-            totalGain = stock.getQuantity() * stockPrice;
+            totalProfit = currentStockPrice < investedStocksAmount ? investedStocksAmount - currentStocksAmount : currentStockPrice - investedStocksAmount;
         }
         stockInvestmentsAmount.put("currentStocksAmount",currentStocksAmount);
         stockInvestmentsAmount.put("investedStocksAmount",investedStocksAmount);
-        stockInvestmentsAmount.put("stockTotalGain",totalGain);
+        stockInvestmentsAmount.put("stockTotalGain",totalProfit);
         return stockInvestmentsAmount;
     }
 
@@ -443,94 +437,24 @@ public class UserWealthService {
     public UserWealthResponse getUserWealth(String token) throws Exception {
         User user= setUserIdBasedOnToken(token);
         UserWealth detailedUserWealthData = new UserWealth();
-            detailedUserWealthData = mappingEntityToDtoForWealth(user);
+            detailedUserWealthData = ModelMapper.mapEntityToWealthDto(user);
             UserWealthResponse userWealth =  getTotalUserWealth(detailedUserWealthData,token);
             return userWealth;
     }
 
     private UserWealthResponse getTotalUserWealth(UserWealth detailedUserWealthData,String token) throws Exception {
         getWealthTriggerFlag = true;
-        UserWealthResponse userWealth = saveWealthData(detailedUserWealthData,token);
+        UserWealthResponse userWealth = handleUserWealth(detailedUserWealthData,token);
         getWealthTriggerFlag = false;
         return userWealth;
     }
 
-    private UserWealth mappingEntityToDtoForWealth(User user) {
-        UserWealth userWealth = new UserWealth();
-        userWealth.setAccounts(mapAccountDto(user.getAccount()));
-        userWealth.setDeposits(mapDepositDto(user.getDeposits()));
-        userWealth.setLoans(mapLoanDto(user.getLoans()));
-        userWealth.setMutualFunds(mapMutualFundDto(user.getMutualFunds()));
-        userWealth.setStocks(mapStockDto(user.getStocks()));
-        return  userWealth;
-    }
 
-    private List<StocksDetails> mapStockDto(List<Stocks> stocks) {
-        List<StocksDetails> stockList = new ArrayList<>();
-        for(Stocks s : stocks){
-            StocksDetails stockDto = new StocksDetails();
-            stockDto.setDematAccountNumber(s.getDematAccountNumber());
-            stockDto.setStockName(s.getStockName());
-            stockDto.setQuantity(s.getQuantity());
-            stockDto.setStockPurchesdPrice(s.getStockPurchesdPrice());
-            stockList.add(stockDto);
-        }
-        return stockList;
-    }
 
-    private List<MutualFundDetails> mapMutualFundDto(List<MutualFunds> mutualFunds) {
-        List<MutualFundDetails> mutualFundList = new ArrayList<>();
-        for(MutualFunds mf : mutualFunds){
-            MutualFundDetails mfDto =new MutualFundDetails();
-            mfDto.setDematAccountNumber(mf.getDematAccountNumber());
-            mfDto.setMfName(mf.getMfName());
-            mfDto.setUnits(mf.getUnits());
-            mfDto.setAvgNav(mf.getAvgNav());
-            mutualFundList.add(mfDto);
-        }
-        return mutualFundList;
-    }
-
-    private List<LoanDetails> mapLoanDto(List<Loan> loans) {
-        List<LoanDetails> loanList = new ArrayList<>();
-        for(Loan l : loans){
-            LoanDetails loanDto = new LoanDetails();
-            loanDto.setLoanAccountNumber(l.getLoanAccountNumber());
-            loanDto.setLoanType(l.getLoanType());
-            loanDto.setPrincipleAmount(l.getPrincipleAmount());
-            loanDto.setOutstandingAmount(l.getOutstandingAmount());
-            loanList.add(loanDto);
-        }
-        return loanList;
-    }
-
-    private List<DepositDetails> mapDepositDto(List<Deposit> deposits) {
-        List<DepositDetails> depositList = new ArrayList<>();
-        for(Deposit dep : deposits){
-            DepositDetails depositDto = new DepositDetails();
-            depositDto.setDepositAccountNumber(dep.getDepositAccountNumber());
-            depositDto.setAmount(dep.getAmount());
-            depositDto.setDepositType(dep.getDepositType());
-            depositList.add(depositDto);
-        }
-        return depositList;
-    }
-
-    private List<AccountDetails> mapAccountDto(List<Account> account) {
-        List<AccountDetails> accountsList = new ArrayList<>();
-        for(Account acc : account){
-            AccountDetails accountDto = new AccountDetails();
-            accountDto.setAccountNumber(acc.getAccountNumber());
-            accountDto.setBalance(acc.getBalance());
-            accountDto.setBranch(acc.getBranch());
-            accountsList.add(accountDto);
-        }
-        return accountsList;
-    }
-
+    //Update the user wealth data based on the account number
     public UserWealthResponse updateUserWealth(UserWealth userWealthRequest,String token) throws Exception {
         updateFlag = "update";
-        UserWealthResponse userWealth = saveWealthData(userWealthRequest, token);updateFlag = "";
+        UserWealthResponse userWealth = handleUserWealth(userWealthRequest, token);updateFlag = "";
         return userWealth;
     }
 }
